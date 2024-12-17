@@ -1,0 +1,38 @@
+configfile: 'config_1.yaml'
+chr = config['chr']
+
+rule all:
+    input:
+        expand('out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz',chr=chr),
+        expand('out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz.tbi',chr=chr),
+
+rule s016_gnomAD_attach:
+    input:
+        gnomad = '/storage/scratch01/users/jaejlee/040.gnomAD_VCF/001.make_ID/001.gnomAD_ID/gnomad.exomes.r2.1.1.sites.{chr}.ID.vcf.gz', # gnomAD data from gnomAD webpage
+        vcf = 'out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz'
+    output:
+        anno = 'out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz',
+    resources:
+        mem_mb = 150000, 
+        runtime = 1440
+    priority: 1
+    shell:
+        '''
+        set +o pipefail; bcftools annotate -a {input.gnomad} -c ID,INFO/gnomAD_FILTER:=FILTER {input.vcf} -O z > {output.anno}  # bcftools annotate with INFO from gnomAD FILTER -> to VCF of TCGA
+        '''
+
+rule s017_gnomAD_attach_make_index:
+    input:
+        anno = 'out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz',
+    output:
+        anno_index = 'out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz.tbi',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 2
+    shell:
+        '''
+        set +o pipefail; tabix {input.anno} ;touch {output.anno_index} # generate index file of vcf 
+        '''
+
+# snakemake --use-conda --slurm  -j 23 -s step3_snakemake -n

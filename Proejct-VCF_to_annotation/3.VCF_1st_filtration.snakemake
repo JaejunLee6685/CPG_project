@@ -1,0 +1,117 @@
+configfile: 'config_1.yaml'
+chr = config['chr']
+
+rule all:
+    input:
+        expand('out2/s001_get_raw_count/TCGA.raw.stats.{chr}.tsv',chr=chr),
+        expand('out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz',chr=chr),
+        expand('out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz.tbi',chr=chr),
+        expand('out2/s003_get_raw_gq_count/TCGA.raw.GQpass.stats.{chr}.tsv',chr=chr),
+        expand('out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz',chr=chr),
+        expand('out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz.tbi',chr=chr),
+        expand('out2/s005_get_raw_gq_indel_count/TCGA.raw.GQpass.cut_indel.stats.{chr}.tsv',chr=chr),
+
+
+# get raw count        
+rule s007_get_raw_count:
+    input:
+        data = 'out1/s6_add_TCGA_ID/TCGA.modified.splitted.ID.{chr}.vcf.gz',
+    output:
+        count_raw = 'out2/s001_get_raw_count/TCGA.raw.stats.{chr}.tsv',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 1
+    shell:
+        "set +o pipefail; bcftools stats {input.data} > {output.count_raw}" # to check the raw count of variant in VCF
+
+
+rule s008_1_get_GQ_passed_variants:
+    input:
+        data = 'out1/s6_add_TCGA_ID/TCGA.modified.splitted.ID.{chr}.vcf.gz',
+    output:
+        gq_pass = 'out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz'
+    resources:
+        mem_mb=150000,
+        runtime=1440,
+    priority: 2
+    shell:
+        '''
+        set +o pipefail; bcftools view -i "FMT/GQ>0" -o {output.gq_pass} -O z {input.data} # filter of variant with having GQ value / # FMT-> FORMAT in VCF / GQ >0 -> no GQ like . would be discarded.
+        '''
+
+rule s008_2_get_index_of_GQ_passed:
+    input:
+        gq_pass = 'out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz',
+    output:
+        index_T = 'out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz.tbi',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 3
+    shell:
+        '''
+        set +o pipefail; tabix {input.gq_pass} ;touch {output.index_T} # generate index file of vcf 
+        '''
+
+rule s009_get_raw_gq_count:
+    input:
+        gq_pass = 'out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz',
+    output:
+        count_raw2 = 'out2/s003_get_raw_gq_count/TCGA.raw.GQpass.stats.{chr}.tsv',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 4
+    shell:
+        '''
+        set +o pipefail; bcftools stats {input.gq_pass} > {output.count_raw2} # to check the raw count of variant in VCF
+        '''
+
+
+
+rule s010_1_cut_based_on_large_indel:
+    input:
+        gq_pass = 'out2/s002_get_GQ_passed_variants/TCGA.{chr}.raw.GQpass.vcf.gz',
+    output:
+        cut_long_indel = 'out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz',
+    resources:
+        mem_mb = 150000, 
+        runtime = 1440
+    priority: 5
+    shell: 
+        '''
+        set +o pipefail;  bcftools view -i "STRLEN(REF) <42 && STRLEN(ALT) <42" -o {output.cut_long_indel} -O z {input.gq_pass} 
+        '''
+# delete indel length over 42 -> after checking gnomAD FILTER information and the distribution
+
+
+rule s010_2_get_index_of_GQ_passed_large_indel:
+    input:
+        cut_long_indel = 'out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz',
+    output:
+        index_TV = 'out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz.tbi',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 6
+    shell:
+        '''
+        set +o pipefail; tabix {input.cut_long_indel} ;touch {output.index_TV}  # generate index file of vcf 
+        '''
+
+rule s011_get_raw_gq_indel_count:
+    input:
+        cut_long_indel = 'out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz',
+    output:
+        count_raw3 = 'out2/s005_get_raw_gq_indel_count/TCGA.raw.GQpass.cut_indel.stats.{chr}.tsv',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 7
+    shell:
+        '''
+        set +o pipefail; bcftools stats {input.cut_long_indel} > {output.count_raw3} # to check the raw count of variant in VCF
+        '''
+
+# snakemake --use-conda --slurm  -j 23 -s step1_snakemake -n

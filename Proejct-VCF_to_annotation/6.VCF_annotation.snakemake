@@ -1,0 +1,66 @@
+configfile: 'config_1.yaml'
+chr = config['chr']
+
+rule all:
+	input:
+		expand('out/s001_TCGA_VEP/VEP.TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.tsv.gz',chr=chr)
+
+rule s001_VEP:
+	input:
+		original_vcf =  'out4/s1_gnomAD_attached/TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz', # gnomAD attached VCF -> independent information field has added.
+	output:
+		annotated_vcf = 'out5/s001_TCGA_VEP/VEP.TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.tsv.gz', # annotation by chr
+	resources:
+		mem_mb=500000,
+		runtime=1440
+	threads: 2
+	shell: 
+		"""	
+		set +o pipefail; vep\
+		--input_file {input.original_vcf} \
+		--output_file {output.annotated_vcf}\
+		--no_stats\
+		--fork 2\
+		--cache\
+		--assembly GRCh37\
+		--species homo_sapiens\
+		--everything\
+		--format vcf\
+		--tab\
+		--compress_output gzip\
+		--force_overwrite\
+		--dir_cache /storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/cache\
+		--offline\
+		--fasta /storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/cache/homo_sapiens/112_GRCh37/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz\
+		--buffer_size 70000\
+		--phased\
+		--sift b\
+		--polyphen b\
+		--biotype\
+		--numbers\
+		--hgvs\
+		--symbol\
+		--canonical\
+		--af\
+		--af_1kg\
+		--af_gnomade\
+		--gencode_basic\
+		--transcript_filter 'stable_id'\
+		--dir_plugins /storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins\
+		--plugin AlphaMissense,file=/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins/AlphaMissense_hg19.tsv.gz,transcript_match=1\
+		--plugin SpliceAI,snv=/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins/spliceai_scores.masked.snv.hg19.vcf.gz,indel=/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins/spliceai_scores.masked.indel.hg19.vcf.gz\
+		--plugin REVEL,file=/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins/new_tabbed_revel.tsv.gz\
+		--custom file=/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/clinvar/clinvar.vcf.gz,short_name=ClinVar,format=vcf,type=exact,coords=0,fields=CLNSIG%CLNREVSTAT%CLNDN\
+		--plugin dbNSFP,/storage/scratch01/groups/gcc/LJJ_ML_project_2024/DATABASE/vep_db/plugins/dbNSFP4.7a_grch37.gz,ALL\
+		"""
+
+# VEP annotation 
+# 1. cache install with the correct version (VCF and GRCh version)
+# 2. plugins (e.g., AlphaMissense, SpliceAI, REVEL, dbNSFP) -> after install plugin function -> download and preprocess with the description in VEP annotation webpage -> run annotation
+# 3. Clinvar -> custom VCF attachement -> from clinvar DB -> to make the clinsig, clinstat, clindn 
+# 4. gnomAD, 1KG AF -> in hg19 (gnomAD: 2.1, 1KG: phase 3)
+# 5. gnomAD AF , 1KG AF in dbNSFP -> based on GRCh38 version -> be careful to handling
+# 6. Alphamissense: calculated based on GRCh38 CANONICAL transcript ID, although GRCh37 version is available
+# 7. AF in annotation file -> 1KG Allele Frequency (not population or sample frequency)
+
+# snakemake --use-conda --slurm  -j 23 -s step4-6_snakemake -n

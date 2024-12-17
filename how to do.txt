@@ -1,0 +1,49 @@
+1. raw vcf to get filtered vcf
+	1) VCF header change: /storage/scratch01/users/jaejlee/003.DATA/001.TCGA_VCF/001.Header_change/snakefile
+	2) VCF Split (multiple ): /storage/scratch01/users/jaejlee/003.DATA/001.TCGA_VCF/002.Split_VCF/snakefile_ver1  AND /storage/scratch01/users/jaejlee/003.DATA/001.TCGA_VCF/002.Split_VCF/snakefile
+	3) VCF filter 1 (GQ, long indel): /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/001.raw_vcf_low_GQ_Long_INDEL/step1_snakemake
+	4) VCF blacklist /mappability: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/002.Blacklist_mappability_gnomAD/step2_snakemake AND /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/002.Blacklist_mappability_gnomAD/step3_snakemake
+	5) VCF annotation: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/003-2.Annotation_VEP_all/step4-6_snakemake
+
+(-> snakemake based analysis, 
+
+2. Annotation to RDGV
+	1) Annotation with VEP (all condition): /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/003-2.Annotation_VEP_all/step4-6_snakemake
+	2) Wide to long: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/004.wide_to_long/step5_snakemake-fix1
+	3) Attach clinical (TCGA sample information) : /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/005.attach_clindata/step6_snakemake
+	
+	4) get exonic only: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s01_get_exonic AND /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s02_to_vcf_file AND 
+
+	5) gnomAD filter double check: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s02_to_vcf_file_ver2
+	6) get after lowqual filter: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s04_score_filter_for_all
+	7) again with lowqual: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s07_drop_lowqual_filter_and_again_out3
+
+2-1. common variant
+	1) common variant get, vcf: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s07_drop_lowqual_filter_and_again_out3_IMPORTANT
+	2) PLINK: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/008.TCGA_1KG_combine
+	-> PLINK and PCA
+
+2-2.rare variant
+	1) last exon: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/011.TCGA_rare_filter/001.Last_exon/s1_get_last_exon
+	2) ptex: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/011.TCGA_rare_filter/002.Ptex/Ts0_make_to_ptex.py AND Ts3_ptex_problem_fix AND Ts4_make_ptex_value_fix
+	3) RDGV: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/011.TCGA_rare_filter/004.Multiple_jot/s1_get_rdgv_review_over2
+	4) mutation frequency : /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/011.TCGA_rare_filter/005.mutation_count/s1_get_rdgv_review_over2_low
+	5) dN/dS : /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/011.TCGA_rare_filter/006.get_dn_ds/s_get_rdgv_no_rare_no_rdgv_single
+
+MAF 0.1% + review2
+
+
+3. Feature from RDGV to PTM
+1) Case-con
+2) two-hit
+3) PTM
+
+4. ML
+1) feature importance
+2) RF model
+3) single feature only
+4) excluding PPI
+5) single cancer type with all feature
+6) other PPI 
+7) essentiality
+8) ML comparison

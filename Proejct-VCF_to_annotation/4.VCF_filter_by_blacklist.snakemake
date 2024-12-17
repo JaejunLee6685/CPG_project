@@ -1,0 +1,99 @@
+configfile: 'config_1.yaml'
+chr = config['chr']
+
+rule all:
+    input:
+        expand('out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz',chr=chr),
+        expand('out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz.tbi',chr=chr),
+        expand('out3/s2_count_blacklist/TCGA.raw.GQpass.cut_indel.black.stats.{chr}.tsv',chr=chr),
+        expand('out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz',chr=chr),
+        expand('out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz.tbi',chr=chr),
+        expand('out3/s4_count_mappability/TCGA.raw.GQpass.cut_indel.black.map.stats.{chr}.tsv',chr=chr),
+
+rule s012_1_filter_by_blacklist:
+     input: 
+        data = 'out2/s004_cut_based_on_large_indel/TCGA.{chr}.raw.GQpass.cut_indel.vcf.gz',
+        bed = 'data/BLAKCLIST.bed', # black list file was from UCSC genome browser hg19 version, mappability and blacklist information
+     output:
+        black_vcf = 'out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz'
+     resources:
+        mem_mb = 95000,
+        runtime = 720,
+     priority: 1
+     shell:
+        "set +o pipefail; bedtools subtract -a {input.data} -b {input.bed} -header |uniq |bgzip > {output.black_vcf}" # filter by black list 
+
+ rule s012_2_get_index_blacklist:
+     input:
+        black_vcf = 'out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz',
+     output:
+        black_index = 'out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz.tbi',
+     resources:
+        mem_mb = 95000,
+        runtime = 720,
+     priority: 2
+     shell:
+        '''
+        set +o pipefail; tabix {input.black_vcf} ;touch {output.black_index}  # generate index file of vcf 
+        '''
+
+rule s013_count_blacklist:
+    input:
+        black_vcf = 'out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz',
+    output:
+        count_black = 'out3/s2_count_blacklist/TCGA.raw.GQpass.cut_indel.black.stats.{chr}.tsv',
+    resources:
+        mem_mb = 95000,
+        runtime = 720
+    priority: 3
+    shell:
+        '''
+        set +o pipefail; bcftools stats {input.black_vcf} > {output.count_black} # to check the raw count of variant in VCF
+        '''
+
+rule s014_1_filter_by_map:
+    input:
+        black_vcf = 'out3/s1_filter_by_blacklist/TCGA.{chr}.raw.GQpass.cut_indel.black.vcf.gz',
+        CRG_bed = 'data/CRG.Map.passed.75mer.changeBED.bed',
+    output:
+        CRG_vcf = 'out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz',
+    resources:
+        mem_mb = 150000,
+        runtime = 1440
+    priority: 4
+    shell:
+        '''
+        set +o pipefail; bedtools intersect -a {input.black_vcf} -b {input.CRG_bed} -header |uniq|bgzip > {output.CRG_vcf} # filter by mappability 75-mer
+        '''
+
+
+rule s014_2_get_index_blacklist:
+    input:
+        CRG_vcf = 'out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz',
+    output:
+        CRG_index = 'out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz.tbi',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 5
+    shell:
+        '''
+        set +o pipefail; tabix {input.CRG_vcf} ;touch {output.CRG_index} # generate index file of vcf 
+        '''
+
+
+rule s015_count_CRG:
+    input:
+        CRG_vcf = 'out3/s3_filter_by_map/TCGA.{chr}.raw.GQpass.cut_indel.black.map.vcf.gz',
+    output:
+        count_crg = 'out3/s4_count_mappability/TCGA.raw.GQpass.cut_indel.black.map.stats.{chr}.tsv',
+    resources:
+        mem_mb = 95000,
+        runtime = 720,
+    priority: 6
+    shell:
+        '''
+        set +o pipefail; bcftools stats {input.CRG_vcf} > {output.count_crg} # to check the raw count of variant in VCF
+        '''
+
+# snakemake --use-conda --slurm  -j 23 -s step2_snakemake -n

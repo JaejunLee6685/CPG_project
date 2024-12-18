@@ -1,0 +1,22 @@
+CPG prediction machine learning Model 
+
+1. From human genes, the selected genes were determined by the case-control analysis criteria (# of pathogenic variants in Case-Control, over 3 pathogenic variants)
+
+2. The unbalanced data set of positive (CPG set) and negative (OTHER set) is the main concern of the process
+
+3. Permutation was composed by two steps (1) select the machine learning set (2) cross validation in the model training step1_snakemake
+
+4. (1) machine learning set requires same proportion of positive and negative set (1:1) / CPG counts for less than 200 but OTHER counts for around 14,000 genes.
+
+5. (2) Once the machine learning set has been selected ,then training and test splition will be done (Train:Test = 8:2)
+
+6. (3) cross validation step works in training step , with selected genes as training set
+
+7. After permutation jobs, data save with three table (1) likelihood of genes (result of machine learning) (2) performance score (AUC, F1, Precision, Accuracy, Recall) (3) FPR and TPR rate to draw AUC PAM_Proximal_Deletion
+
+8. TPR and FPR are not the same size (first: 18 TPR, FPR calculated / second: 17 TPR, FPR calculated)
+
+9. Average value of performance represent the model's performance 
+
+10. Hyperparameter tuning step also vary based on the training/test set.
+

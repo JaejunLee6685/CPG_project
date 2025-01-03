@@ -1,0 +1,34 @@
+configfile: 'config.yaml'
+chr = config['chr']
+rule all:
+	input:
+	    expand('out_AM/s000_add_AM/TCGA.{chr}.exonic.AM.variant.tsv.gz',chr=chr),
+		'out_AM/s002_merge/TCGA.ALL.exonic.rare.last.exon.tsv.gz'
+
+
+
+
+rule s000_add_AM_from_vep:
+	input:
+		TEMPO = '{project-annotation_to_RDGV_call}/out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz',	
+        VEP = '{project-annotation_to_RDGV_call}/out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv'
+	output:
+		OUT = 'out_AM/s000_add_AM/TCGA.{chr}.exonic.AM.variant.tsv.gz'
+	resources:
+		mem_mb = 120000,
+		runtime =1440,
+	script:
+		'scripts/3_merge_VEP_anno_AM.py'
+
+rule s002_merge:
+	input:
+		data = expand('out_AM/s000_add_AM/TCGA.{chr}.exonic.AM.variant.tsv.gz',chr=chr)
+	output:
+		merged = 'out_AM/s002_merge/TCGA.ALL.exonic.rare.last.exon.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=1440,
+	script:
+		'scripts/merge_all_chr.py'
+
+# snakemake --use-conda --slurm  -j 23 -s 2.AM_based_call.notused.snakemake -n

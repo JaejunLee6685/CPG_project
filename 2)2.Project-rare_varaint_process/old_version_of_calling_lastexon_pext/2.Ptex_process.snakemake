@@ -1,0 +1,42 @@
+rule all:
+	input:
+        'data/TCGA.delmis.need2check.ptex.tsv.gz',
+        'out_ptex/TCGA.delmis.ptex.combine.renew2.tsv.gz',
+        'out_ptex/TCGA.delmis.ptex.certified.fixed.tsv.gz'
+
+rule s001_make_to_ptex:
+	input:
+		DATA = 'out/s004_merged_all_exon/TCGA.ALL.exonic.rare.all.exon.tsv.gz',
+	output:
+		OUT = 'data/TCGA.delmis.need2check.ptex.tsv.gz',
+	resources:
+		mem_mb=256000,
+		runtime=360,
+	script:
+		'scripts/Ts0_make_to_ptex.py'
+
+rule s002_ptex_delmis:
+	input:
+		ptex = 'data/all.baselevel.short.021620.tsv.gz', # long version is in cluster
+        delmis = 'data/TCGA.delmis.need2check.ptex.tsv.gz',
+	output:
+		ptex_delmis = 'out_ptex/TCGA.delmis.ptex.combine.renew2.tsv.gz'
+	resources:
+		mem_mb=256000,
+		runtime=360,
+	script:
+		'scripts/Ts3_ptex_problem_fix.py'
+
+rule s003_filter_by_ptex:
+	input:
+		ptex_delmis = expand('out/s002_all_exon/TCGA.{chr}.exonic.rare.rdgv.exon.tsv.gz',chr=chr)
+	output:
+		merged = 'out_ptex/TCGA.delmis.ptex.certified.fixed.tsv.gz' # final result of ptex
+	resources:
+		mem_mb=128000,
+		runtime=180,
+	script:
+		'scripts/Ts4_make_ptex_value_fix.py'
+
+
+# snakemake --use-conda --slurm  -j 4 -s 2.Ptex_process.snakemake -n

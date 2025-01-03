@@ -1,0 +1,45 @@
+configfile: 'config.yaml'
+chr = config['chr']
+rule all:
+	input:
+	    expand('out/s001_last_exon/TCGA.{chr}.exonic.rare.last.exon.tsv.gz',chr=chr),
+	    expand('out/s002_all_exon/TCGA.{chr}.exonic.rare.rdgv.exon.tsv.gz', chr=chr),
+		'out/s003_merged_last_exon/TCGA.ALL.exonic.rare.last.exon.tsv.gz',
+		'out/s004_merged_all_exon/TCGA.ALL.exonic.rare.all.exon.tsv.gz'
+
+
+rule s001_get_last_exon:
+	input:
+		TEMPO = '{project-annotation_to_RDGV_call}/out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz',
+	output:
+		OUT = 'out/s001_last_exon/TCGA.{chr}.exonic.rare.last.exon.tsv.gz',
+		ALL = 'out/s002_all_exon/TCGA.{chr}.exonic.rare.rdgv.exon.tsv.gz',
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	script:
+		'scripts/get_last_exon.py'
+
+rule s002_merge_last:
+	input:
+		data = expand('out/s001_last_exon/TCGA.{chr}.exonic.rare.last.exon.tsv.gz',chr=chr)
+	output:
+		merged = 'out/s003_merged_last_exon/TCGA.ALL.exonic.rare.last.exon.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=1440,
+	script:
+		'scripts/merge_all_chr.py'
+
+rule s003_merge_all:
+	input:
+		data = expand('out/s002_all_exon/TCGA.{chr}.exonic.rare.rdgv.exon.tsv.gz',chr=chr)
+	output:
+		merged = 'out/s004_merged_all_exon/TCGA.ALL.exonic.rare.all.exon.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=1440,
+	script:
+		'scripts/merge_all_chr.py'
+
+# snakemake --use-conda --slurm  -j 23 -s s1_get_last_exon -n

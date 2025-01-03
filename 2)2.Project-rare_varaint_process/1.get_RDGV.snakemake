@@ -1,0 +1,104 @@
+configfile: 'config.yaml'
+chr = config['chr']
+maf = config['maf']
+
+rule all:
+	input:
+	    expand('out/s001_last_exon/TCGA.{chr}.exonic.{maf}.last.exon.tsv.gz',chr=chr,maf=maf),
+	    expand('out/s002_all_exon/TCGA.{chr}.exonic.{maf}.rdgv.exon.tsv.gz', chr=chr,maf=maf),
+		expand('out/s003_merged_last_exon/TCGA.ALL.exonic.{maf}.last.exon.tsv.gz', maf=maf),
+		expand('out/s004_merged_all_exon/TCGA.ALL.exonic.{maf}.all.exon.tsv.gz', maf=maf),
+		expand('out/s005_pext/TCGA.{maf}.delmis.need2check.ptex.tsv.gz',maf=maf),
+		expand('out/s006_pext_com/TCGA.{maf}.delmis.combine.ptex.tsv.gz',maf=maf),
+		expand('out/s007_pext_fin/TCGA.{maf}.delmis.combine.ptex.certified.tsv.gz', maf=maf),
+		expand('out/s008_RDGV/TCGA.{maf}.RDGV.tsv.gz',maf=maf)
+
+
+rule s001_get_last_exon:
+	input:
+		TEMPO = '{project-annotation_to_RDGV_call}/out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz',
+	output:
+		OUT = 'out/s001_last_exon/TCGA.{chr}.exonic.{maf}.last.exon.tsv.gz',
+		ALL = 'out/s002_all_exon/TCGA.{chr}.exonic.{maf}.rdgv.exon.tsv.gz',
+	resources:
+		mem_mb=120000,
+		runtime=360,
+	params:
+		maf = "{maf}"
+	script:
+		'scripts/s1_get_last_exon.py'
+
+rule s002_merge_last:
+	input:
+		data = expand('out/s001_last_exon/TCGA.{chr}.exonic.{{maf}}.last.exon.tsv.gz',chr=chr)
+	output:
+		merged = 'out/s003_merged_last_exon/TCGA.ALL.exonic.{maf}.last.exon.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s2_merge_all_chr.py'
+
+rule s003_merge_all:
+	input:
+		data = expand('out/s002_all_exon/TCGA.{chr}.exonic.{{maf}}.rdgv.exon.tsv.gz',chr=chr)
+	output:
+		merged = 'out/s004_merged_all_exon/TCGA.ALL.exonic.{maf}.all.exon.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s2_merge_all_chr.py'
+
+
+
+rule s004_pext_pipe1:
+	input:
+		merged_all = 'out/s004_merged_all_exon/TCGA.ALL.exonic.{maf}.all.exon.tsv.gz'
+	output:
+		need2check = 'out/s005_pext/TCGA.{maf}.delmis.need2check.ptex.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s3_make_to_ptex.py'
+
+
+rule s005_pext_pipe2:
+	input:
+		pext_value= '001.data/all.baselevel.021620.tsv.bgz',
+		need2check = 'out/s005_pext/TCGA.{maf}.delmis.need2check.ptex.tsv.gz'
+	output:
+		pext_combine = 'out/s006_pext_com/TCGA.{maf}.delmis.combine.ptex.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s4_ptex_problem_fix.py'
+
+rule s006_pext_pipe3:
+	input: 
+		pext_combine = 'out/s006_pext_com/TCGA.{maf}.delmis.combine.ptex.tsv.gz',
+	output:
+		pext_fin = 'out/s007_pext_fin/TCGA.{maf}.delmis.combine.ptex.certified.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s5_make_ptex_value_fix.py'
+
+rule s007_get_RDGV:
+	input:
+		merged_all ='out/s004_merged_all_exon/TCGA.ALL.exonic.{maf}.all.exon.tsv.gz' ,
+		pext_fin= 'out/s007_pext_fin/TCGA.{maf}.delmis.combine.ptex.certified.tsv.gz',
+		merged_ptv = 'out/s003_merged_last_exon/TCGA.ALL.exonic.{maf}.last.exon.tsv.gz'
+	output:
+		RDGV = 'out/s008_RDGV/TCGA.{maf}.RDGV.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=360,
+	script:
+		'scripts/s9_get_rdgv_MAF.py'
+
+
+# snakemake --use-conda --slurm  -j 23 -s 1.get_RDGV.snakemake -n

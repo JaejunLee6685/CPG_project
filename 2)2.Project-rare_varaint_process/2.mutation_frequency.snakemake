@@ -1,0 +1,21 @@
+configfile: 'config.yaml'
+maf = config['maf']
+
+rule all:
+	input:
+		expand('out2/TCGA.{maf}.mutation.frequency_review2.tsv.gz', maf=maf),
+
+
+rule s001_mutation_frequency:
+	input:
+		rdgv_table = 'out/s008_RDGV/TCGA.{maf}.RDGV.tsv.gz'
+	output:
+		binary_sample = 'out2/TCGA.{maf}.mutation.frequency_review2.tsv.gz'
+	resources:
+		mem_mb=85000,
+		runtime=120,
+	script:
+		's1_get_mut_freq.py'
+
+
+# snakemake --use-conda --slurm  -j 23 -s s1_get_rdgv_review_over2_low -n

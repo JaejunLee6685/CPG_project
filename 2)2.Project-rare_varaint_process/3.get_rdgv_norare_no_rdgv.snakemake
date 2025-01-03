@@ -1,0 +1,173 @@
+configfile: 'config.yaml'
+chr = config['chr']
+maf = config['maf']
+com_maf = config['com_maf']
+
+rule all:
+	input:
+	    expand('B_out/s101_no_rare_ptv/TCGA.{chr}.exonic.{maf}.no.RARE.ptv.tsv.gz', chr=chr,maf=maf),
+	    expand('B_out/s102_no_rare_rdgv/TCGA.{chr}.exonic.{maf}.no.RARE.rdgv.tsv.gz', chr=chr,maf=maf),
+		expand('B_out/s201_rare_no_rdgv/TCGA.{chr}.exonic.{maf}.RARE.no.rdgv.tsv.gz',chr=chr, maf=maf),
+		expand('B_out/s202_rare_no_delmis/TCGA.{chr}.exonic.{maf}.RARE.no.delmis.tsv.gz', chr=chr,maf=maf),
+		expand('B_out/s301_no_rare_no_rdgv/TCGA.{chr}.exonic.{maf}.no.RARE.no.rdgv.tsv.gz',chr=chr, maf=maf),
+		expand('B_out/s302_no_rare_no_delmis/TCGA.{chr}.exonic.{maf}.no.RARE.no.delmis.tsv.gz',chr=chr, maf=maf),
+
+		expand('B_out/s103_merged_no_rare_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.tsv.gz', maf=maf),
+		expand('B_out/s203_merged_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz',maf=maf), 
+		expand('B_out/s204_merged_rare_no_delmis/TCGA.ALL.exonic.{maf}.RARE.no.delmis.tsv.gz', maf=maf),
+		expand('B_out/s303_merged_no_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz', maf=maf),
+		expand('B_out/s304_merged_no_rare_no_delmis/TCGA.ALL.exonic.{maf}.no.RARE.no.delmis.tsv.gz', maf=maf),
+
+		expand('B_out/s105_pext/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.need2check.dgv.ptex.tsv.gz', maf=maf),
+		expand('B_out/s106_pext_com/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.tsv.gz',maf=maf),
+		expand('B_out/s107_pext_fin/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.certified.tsv.gz', maf=maf),
+		expand('B_out/s108_RDGV/TCGA.{maf}.no.RARE.RDGV.tsv.gz',maf=maf),
+
+rule s001_get_last_exon_normal:
+	input:
+		TEMPO = '{project-annotation_to_RDGV_call}/out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz',
+	output:
+		PTV_OUT_1st ='B_out/s101_no_rare_ptv/TCGA.{chr}.exonic.{maf}.no.RARE.ptv.tsv.gz',
+		ALL_OUT_1st = 'B_out/s102_no_rare_rdgv/TCGA.{chr}.exonic.{maf}.no.RARE.rdgv.tsv.gz',
+
+		rare_noRDGV = 'B_out/s201_rare_no_rdgv/TCGA.{chr}.exonic.{maf}.RARE.no.rdgv.tsv.gz',
+		rare_noDelmis = 'B_out/s202_rare_no_delmis/TCGA.{chr}.exonic.{maf}.RARE.no.delmis.tsv.gz',
+
+		norare_noRDGV = 'B_out/s301_no_rare_no_rdgv/TCGA.{chr}.exonic.{maf}.no.RARE.no.rdgv.tsv.gz',
+		norare_noDelmis = 'B_out/s302_no_rare_no_delmis/TCGA.{chr}.exonic.{maf}.no.RARE.no.delmis.tsv.gz',
+	resources:
+		mem_mb=120000,
+		runtime=360,
+	params:
+		maf = "{maf}"
+	script:
+		'scripts_get_rdgv/s49_get_no_rare_no_damaging.py'
+
+#########################################
+
+
+####################################
+rule s002_merge_no_rare_rdgv_prev:
+	input:
+		data = expand('B_out/s102_no_rare_rdgv/TCGA.{chr}.exonic.{{maf}}.no.RARE.rdgv.tsv.gz',chr=chr)
+	output:
+		merged = 'B_out/s103_merged_no_rare_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+
+rule s002_merge_no_rare_ptv_prev:
+	input:
+		data = expand('B_out/s101_no_rare_ptv/TCGA.{chr}.exonic.{{maf}}.no.RARE.ptv.tsv.gz', chr=chr)
+	output:
+		merged = 'B_out/s104_merged_no_rare_ptv/TCGA.ALL.exonic.{maf}.no.RARE.ptv.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+
+###########################
+rule s002_merge_rare_no_rdgv:
+	input:
+		data = expand('B_out/s201_rare_no_rdgv/TCGA.{chr}.exonic.{{maf}}.RARE.no.rdgv.tsv.gz',chr=chr)
+	output:
+		merged = 'B_out/s203_merged_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+
+rule s002_merge_rare_no_delmis:
+	input:
+		data = expand('B_out/s202_rare_no_delmis/TCGA.{chr}.exonic.{{maf}}.RARE.no.delmis.tsv.gz',chr=chr)
+	output:
+		merged = 'B_out/s204_merged_rare_no_delmis/TCGA.ALL.exonic.{maf}.RARE.no.delmis.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+##############################
+
+rule s002_merge_no_rare_no_rdgv:
+	input:
+		data = expand('B_out/s301_no_rare_no_rdgv/TCGA.{chr}.exonic.{{maf}}.no.RARE.no.rdgv.tsv.gz',chr=chr)
+	output:
+		merged = 'B_out/s303_merged_no_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+
+rule s002_merge_no_rare_no_delmis:
+	input:
+		data = expand('B_out/s302_no_rare_no_delmis/TCGA.{chr}.exonic.{{maf}}.no.RARE.no.delmis.tsv.gz', chr=chr)
+	output:
+		merged = 'B_out/s304_merged_no_rare_no_delmis/TCGA.ALL.exonic.{maf}.no.RARE.no.delmis.tsv.gz'
+	resources:
+		mem_mb=200000,
+		runtime=360,
+	script:
+		'scripts_get_rdgv/s2_merge_all_chr.py'
+
+####################################
+# ptv filter, pext filter
+# merge -to get final dgv
+
+
+
+rule s004_pext_pipe1:
+	input:
+		merged_all = 'B_out/s103_merged_no_rare_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.tsv.gz'
+	output:
+		need2check = 'B_out/s105_pext/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.need2check.dgv.ptex.tsv.gz'
+	resources:
+		mem_mb=500000,
+		runtime=1440,
+	script:
+		'scripts_get_rdgv/s3_make_to_ptex.py'
+
+
+rule s005_pext_pipe2:
+	input:
+		pext_value= '001.data/all.baselevel.021620.tsv.bgz',
+		need2check =  'B_out/s105_pext/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.need2check.dgv.ptex.tsv.gz'
+	output:
+		pext_combine = 'B_out/s106_pext_com/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.tsv.gz'
+	resources:
+		mem_mb=500000,
+		runtime=1440,
+	script:
+		'scripts_get_rdgv/s4_ptex_problem_fix.py'
+
+rule s006_pext_pipe3:
+	input: 
+		pext_combine = 'B_out/s106_pext_com/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.tsv.gz'
+	output:
+		pext_fin = 'B_out/s107_pext_fin/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.certified.tsv.gz'
+	resources:
+		mem_mb=500000,
+		runtime=1440,
+	script:
+		'scripts_get_rdgv/s5_make_ptex_value_fix.py'
+
+rule s007_get_RDGV:
+	input:
+		merged_all ='B_out/s103_merged_no_rare_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.rdgv.tsv.gz',
+		pext_fin= 'B_out/s107_pext_fin/TCGA.{maf}.no.RARE.rdgv.delmis.combine.dgv.ptex.certified.tsv.gz',
+		merged_ptv = 'B_out/s104_merged_no_rare_ptv/TCGA.ALL.exonic.{maf}.no.RARE.ptv.tsv.gz'
+	output:
+		RDGV = 'B_out/s108_RDGV/TCGA.{maf}.no.RARE.RDGV.tsv.gz'
+	resources:
+		mem_mb=500000,
+		runtime=1440,
+	script:
+		'scripts_get_rdgv/s9_get_rdgv_MAF.py'
+
+
+# snakemake --use-conda --slurm  -j 23 -s 3.get_rdgv_norare_no_rdgv.snakemake -n

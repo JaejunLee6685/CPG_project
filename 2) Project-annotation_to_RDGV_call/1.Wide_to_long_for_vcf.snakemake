@@ -1,0 +1,144 @@
+configfile: 'config.yaml'
+chr = config['chr']
+chunks = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+rule all:
+    input:
+        expand('out/s10_vaf/{chr}.long.carriers.vaf.tsv.gz', chr = chr)
+
+
+rule s1_get_header_line:
+    input:
+        comp = 'TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz' # raw VCF after gnomAD Filter added
+    output:
+        header = temp('out/s1_header/{chr}.header.tsv')
+    resources:
+        mem_mb = 75000,
+        runtime = 60
+    shell:
+        'set +o pipefail;bcftools head {input.comp} | tail -n 1 > {output.header}'
+
+
+rule s2_remove_header:
+    input:
+        comp = 'TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.vcf.gz'
+    output:
+        comp_nohead = temp('out/s2_no_header/{chr}.no_header.tsv.gz')
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    shell:
+        'set +o pipefail;bcftools view -H -O z -o {output.comp_nohead} {input.comp}'
+
+
+rule s3_decompress:
+    input:
+        comp = 'out/s2_no_header/{chr}.no_header.tsv.gz'
+    output:
+        decomp = temp('out/s3_decompressed/{chr}.no_header.decompressed.tsv')
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    shell:
+        'set +o pipefail;gunzip -d -k -c {input.comp} > {output.decomp}'
+
+
+rule s4_split:
+    input:
+        decomp = 'out/s3_decompressed/{chr}.no_header.decompressed.tsv'
+    output:
+        chunks = temp(expand('out/s4_split/{{chr}}/{{chr}}.no_header.decompressed.split.tsv_{chunk}', chunk = chunks))
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    params:
+        prefix = "out/s4_split/{chr}/{chr}.no_header.decompressed.split.tsv_"
+    priority: 2
+    shell:
+        'set +o pipefail;split -n l/10 -d -a 1 {input.decomp} {params.prefix}'
+
+
+rule s5_paste_header:
+    input:
+        chunk = 'out/s4_split/{chr}/{chr}.no_header.decompressed.split.tsv_{chunk}',
+        header = 'out/s1_header/{chr}.header.tsv'
+    output:
+        chunk_header = temp('out/s5_paste_header/{chr}/{chr}.header.decompressed.split.tsv_{chunk}')
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    priority: 3
+    shell:
+        'set +o pipefail;cat {input.header} {input.chunk} > {output.chunk_header}'
+
+
+rule s6_wide_to_long:
+    input:
+        chunk_header = 'out/s5_paste_header/{chr}/{chr}.header.decompressed.split.tsv_{chunk}'
+    output:
+        chunk_table = temp('out/s6_long_chunks/{chr}/{chr}.long.{chunk}.tsv')
+    resources:
+        mem_mb = 150000,
+        runtime = 1440
+    params:
+        preheader = config['preheader'],
+        infos = config['infos'],
+        formats = config['formats'],
+    priority: 4
+    shell:
+        'set +o pipefail;python packages/VcfSimplify.py SimplifyVCF -toType table -inVCF {input.chunk_header} -outFile {output.chunk_table} -preHeader ID POS FILTER -infos gnomAD_FILTER -formats {params.formats} -mode long'
+
+
+rule s7_get_keep_carriers:
+    input:
+        chunk_table = 'out/s6_long_chunks/{chr}/{chr}.long.{chunk}.tsv'
+    output:
+        carriers_table = temp('out/s7_carrires_chunks/{chr}/{chr}.long.carriers.{chunk}.tsv')
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    priority: 5
+    shell:
+        'set +o pipefail;egrep -v "(\./\.)|(0/0)" {input.chunk_table} > {output.carriers_table}'
+
+
+rule s8_rem_header:
+    input:
+        carriers_table = 'out/s7_carrires_chunks/{chr}/{chr}.long.carriers.{chunk}.tsv'
+    output:
+        carriers_table_nohead = temp('out/s8_carrires_chunks_nohead/{chr}/{chr}.long.carriers.nohead.{chunk}.tsv')
+    resources:
+        mem_mb = 75000,
+        runtime = 360
+    priority: 6
+    shell:
+        'set +o pipefail;tail -n +2 {input.carriers_table} > {output.carriers_table_nohead}'
+
+
+rule s9_join_output:
+    input:
+        long_header = 'header_long.tsv',
+        carriers_chunks_nohead = expand('out/s8_carrires_chunks_nohead/{{chr}}/{{chr}}.long.carriers.nohead.{chunk}.tsv', chunk = chunks)
+    output:
+        out = temp('out/s9_joined/{chr}.long.carriers.tsv')
+    resources:
+        mem_mb = 90000,
+        runtime = 360
+    priority: 7
+    shell:
+        'set +o pipefail;cat {input.long_header} {input.carriers_chunks_nohead} > {output.out}'
+
+
+rule s10_compute_vaf:
+    input:
+        tab = 'out/s9_joined/{chr}.long.carriers.tsv'
+    output:
+        vaf = 'out/s10_vaf/{chr}.long.carriers.vaf.tsv.gz'
+    resources:
+        mem_mb = 120000,
+        runtime = 1440
+    priority: 8
+    script:
+        'scripts_annex/vaf_calculator.py'
+
+# snakemake --use-conda --slurm  -j 10 -s 1.Wide_to_long_for_vcf.snakemake -n

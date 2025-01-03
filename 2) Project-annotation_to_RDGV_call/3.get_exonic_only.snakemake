@@ -1,0 +1,95 @@
+configfile: 'config.yaml'
+chr = config['chr']
+
+rule all:
+	input:
+		expand('out3/s001_can_tran_protein/VEP.TCGA.{chr}.important.variant.tsv',chr=chr),
+		expand('out3/s002_exonic/VEP.TCGA.{chr}.important.exonic.variant.tsv',chr=chr),
+		expand('out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv',chr=chr),
+		expand('out3/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.tsv.gz', chr=chr),
+		expand('out4/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.cd.tsv.gz',chr=chr),
+		'out4/s005_merged/VEP.TCGA.ALL.exonic.filter.cd.tsv.gz'
+
+rule s001_VEP_important:
+	input:
+		annotated_vep= 'VEP.TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.tsv.gz',
+	output:
+		variant1 = 'out3/s001_can_tran_protein/VEP.TCGA.{chr}.important.variant.tsv',
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	shell: 
+		"""
+		set +o pipefail; filter_vep\
+		--input_file {input.annotated_vep}\
+		--filter "(CANONICAL is YES) and (Feature_type is Transcript) and (BIOTYPE is protein_coding) and (IMPACT != MODIFIER) and (SYMBOL_SOURCE is HGNC)"\
+		--output_file {output.variant1}\
+		"""
+
+
+rule s002_VEP_exonic:
+	input:
+		variant1= 'out3/s001_can_tran_protein/VEP.TCGA.{chr}.important.variant.tsv',
+	output:
+		variant2 = 'out3/s002_exonic/VEP.TCGA.{chr}.important.exonic.variant.tsv',
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	shell: 
+		"""
+		set +o pipefail; filter_vep\
+		--input_file {input.variant1}\
+		--filter "(Consequence match miss) or (Consequence match splice) or (Consequence match lost) or (Consequence match frame) or (Consequence match gained) or (Consequence match feature) or (Consequence match transcript) or (Consequence match protein)"\
+		--output_file {output.variant2}\
+		"""
+
+
+rule s003_tidy_up:
+    input:
+        common_variant = 'out3/s002_exonic/VEP.TCGA.{chr}.important.exonic.variant.tsv'
+    output:
+        filter_ed = 'out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv'
+    resources:
+        meme_mb=80000,
+        runtime=720,
+    shell: """
+        set +o pipefail; grep -v "^##" {input.common_variant} | sed "s/#Uploaded_variation/ID/"   > {output.filter_ed}
+        """
+
+rule s004_to_wide_to_long: # this step is only get exonic variant
+	input:
+		filter_ed = 'out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv',
+		wide_long = 'out2/s1_clin_attached/TCGA.{chr}.long.carriers.vaf.clin.tsv.gz',
+	output:
+		long_filter = 'out3/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.tsv.gz'
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	script:
+		'scripts_annex/filter_by_annotation_exonic.py'
+
+
+rule s005_to_wide_to_long: # gnomAD filter again
+	input:
+		filter_ed = 'out3/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.tsv.gz',
+	output:
+		long_filter = 'out4/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.cd.tsv.gz'
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	script:
+		'scripts_annex/filter_common_exonic_change_gnomAD.py'
+
+rule s103_merge_long:
+	input:
+		data = expand('out4/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.cd.tsv.gz',chr=chr)
+	output:
+		merged = 'out4/s005_merged/VEP.TCGA.ALL.exonic.filter.cd.tsv.gz'
+	resources:
+		mem_mb=250000,
+		runtime=1440,
+	script:
+		'scripts_annex/merge_them.py'
+
+
+# snakemake --use-conda --slurm  -j 23 -s 3.get_exonic_only.snakemake -n

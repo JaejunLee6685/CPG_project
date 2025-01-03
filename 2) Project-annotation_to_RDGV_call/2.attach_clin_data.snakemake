@@ -1,0 +1,21 @@
+configfile: 'config.yaml'
+chr = config['chr']
+
+rule all:
+    input:
+        expand('out2/s1_clin_attached/TCGA.{chr}.long.carriers.vaf.clin.tsv.gz',chr=chr)
+
+rule s001_clin_attach:
+    input:
+        long = 'out/s10_vaf/{chr}.long.carriers.vaf.tsv.gz',
+        clin = 'TCGA_SAMPLE_CLIN_Kit_lowqual.txt',
+    output:
+        attached = 'out2/s1_clin_attached/TCGA.{chr}.long.carriers.vaf.clin.tsv.gz',
+    resources:
+        mem_mb = 120000, 
+        runtime = 1440
+    script:
+        'scripts_annex/attaching_clin.py'
+
+
+# snakemake --use-conda --slurm  -j 23 -s 2.attach_clin_data.snakemake -n

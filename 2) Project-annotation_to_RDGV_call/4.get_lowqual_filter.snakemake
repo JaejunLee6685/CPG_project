@@ -1,0 +1,86 @@
+configfile: 'config.yaml'
+chr = config['chr']
+#folls =["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9", "2.0", "3.0", "4.0", "5.0"]
+folls =["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12","13"] # 13 = original vcf for PCA
+
+rule all:
+	input:
+		expand('out5/s001_lonng_filter/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.tsv.gz',chr=chr),
+		expand('out5/s002_lonng_filter_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.tsv.gz',chr=chr),
+		expand('out5/s003_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.tsv.gz',chr=chr),
+		expand('out5/s003_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.tsv.gz', chr=chr),
+		expand('out5/s004_AF_FOLDchange/VEP.TCGA.COMMON.fold_{folls}_.tsv.gz',folls =folls),
+		expand('out5/s005_AF_VCF/VEP.v.TCGA.COMMON.fold_{folls}_.tsv.gz', folls= folls),
+		expand('out5/s006_vcf/TCGA.common._{folls}_.vcf.gz',folls=folls)
+
+
+rule s006_long_filter_by_score: # AD, DP, GQ filter
+	input:
+		wide_long = 'out4/s004_long_exonic/VEP.TCGA.{chr}.exonic.filter.cd.tsv.gz'
+	output:
+		DF3 = 'out5/s001_lonng_filter/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.tsv.gz'
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	script:
+		'scripts_annex/filter_low_qual_vcf.py'
+
+rule s007_cal_AF:
+	input:
+		long = 'out5/s001_lonng_filter/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.tsv.gz'
+	output:
+		AF_out = 'out5/s002_lonng_filter_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.tsv.gz'
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	script:
+		'scripts_annex/cal_center_tcga_af.py'
+
+rule s007_merge_to_common_only:
+	input:
+		DF3 = 'out5/s002_lonng_filter_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.tsv.gz',
+		vep = 'out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv'
+	output:
+		commons = 'out5/s003_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.tsv.gz',
+		temporarys = 'out5/s003_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.tsv.gz', # main target for this step
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	script:
+		'scripts_annex/merge_vep_vcf.py'
+
+rule s008_fold_change:
+	input:
+		commons = expand('out5/s003_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.tsv.gz', chr=chr),
+	output:
+		datas = expand('out5/s004_AF_FOLDchange/VEP.TCGA.COMMON.fold_{folls}_.tsv.gz', folls = folls)
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	script:
+		'scripts_annex/FOLD_change.py'	
+
+rule s009_to_vcf:
+	input:
+		datas = 'out5/s004_AF_FOLDchange/VEP.TCGA.COMMON.fold_{folls}_.tsv.gz',
+	output:
+		vcf_tsv = 'out5/s005_AF_VCF/VEP.v.TCGA.COMMON.fold_{folls}_.tsv.gz', 
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	script:
+		'scripts_annex/change_vcf.py'
+
+rule s010_get_vcf:
+	input:
+		vcf_tsv = 'out5/s005_AF_VCF/VEP.v.TCGA.COMMON.fold_{folls}_.tsv.gz', 
+		header = 'header.tsv.gz',
+	output:
+		vcfs= 'out5/s006_vcf/TCGA.common._{folls}_.vcf.gz',
+	resources:
+		mem_mb=150000,
+		runtime=1440,
+	shell:
+		'''set +o pipefail;cat {input.header} {input.vcf_tsv} > {output.vcfs}'''
+
+# snakemake --use-conda --slurm  -j 23 -s 4.get_lowqual_filter.snakemake -n

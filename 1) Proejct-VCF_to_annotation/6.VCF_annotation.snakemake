@@ -3,7 +3,7 @@ chr = config['chr']
 
 rule all:
 	input:
-		expand('out/s001_TCGA_VEP/VEP.TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.tsv.gz',chr=chr)
+		expand('out5/s001_TCGA_VEP/VEP.TCGA.{chr}.raw.GQpass.cut_indel.black.map.gnomAD.tsv.gz',chr=chr)
 
 rule s001_VEP:
 	input:

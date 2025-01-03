@@ -1,0 +1,48 @@
+1. single_feature_training.py
+
+-> use can choose single feature when submitting sbatch jobs
+-> not only PPI single features (like average shortest distance, jaccard similiarity, )
+
+Here is the example of how to submit job
+# distanceAll_path
+sbatch -o {log_output_dir} -e {error_output_dir} -J {job_Name} -c 64 --mem=64G -t360 --wrap "python ./002.script/run_RF_single_feature_PPI.py distanceAll_path"
+
+# c: number of core / 64 cores takes maximum 1 hour 30 minutes
+# mem: size of memory / 64 Gb recommends
+# t: time of running / maximum 1440 mins / scale minutes
+# --wrap: command for python
+
+######## python command ########
+
+For single feature:
+
+"python {dir}/{script.py} {Feature_single}"
+# feature_name: "case_con_zvalues" (for example)
+
+
+multiple feature from PPI: # here only consider double
+
+"python {dir}/{script.py} {Feature_single} {Feature_double}" 
+# feature_name: "case_con_zvalues" (for example)
+
+2. train_composition_change.py
+
+-> use positive set training composition
+-> this is not to use 100% of positive set for machine learning set
+
+## machine learning set
+-> machine learning set means the selection of genes before training/test set
+-> unbalanced positive(CPG) and negative(Other) set cause biased model construction
+-> so, based on the positive set, the user should make as the same number of negative set / this selection step defined machine learnig set selection
+
+After machine learning set selection, now the user can split traing/test set with 8:2 (well established proportion with training and test set)
+
+
+For selection_portion:
+"python {dir}/{script.py} {proportion} "
+# proprotion: 0.1 to 1.0 (float)
+
+
+
+
+

@@ -49,6 +49,19 @@ data = data[['case_con_zvalues', 'two_hit_zvalues', 'RDGV_by_nonRDGV', 'Tau_scor
        'Bidirectional_Deletion', 'Edition_efficiency', 'Guide_Abundance',
        'Insertion', 'Insertion_Deletion', 'PAM_Proximal_Deletion', 'Is_positive']] # Current version of selected features
 
+# import features from sys argv when running sbatch
+Feature_single = str(sys.argv[1]) # sys.argv[0] = python code itself / sys.argv[1] = parameter when submitting jobs
+# example
+# Feature_single = 'case_con_zvalues' 
+
+
+# Feature_double = str(sys.argv[2])
+# Feature_final = Feature_single+'_'+Feature_double
+
+data = data[[Feature_single, 'Is_positive']] # select one feature (x) and y set (Y: positive or negative set)
+
+# data = data[[Feature_single,Feature_double, 'Is_positive']]
+
 name = 'RF_impu' # Machine learning model name to compare result
 
 np.random.seed(35)
@@ -62,11 +75,8 @@ second_repeat = 5 # cross validation during the training model
 
 
 
-x_col = ['case_con_zvalues', 'two_hit_zvalues', 'RDGV_by_nonRDGV', 'Tau_score',
-       'oe_lof_upper', 'PTM_pvalue', 'PTV_frequency', 'amplification.freq',
-       'deletion.freq', 'clin_zvalue',Feature_single,
-       'Bidirectional_Deletion', 'Edition_efficiency', 'Guide_Abundance',
-       'Insertion', 'Insertion_Deletion', 'PAM_Proximal_Deletion', ]
+x_col = [Feature_single, ]
+#x_col = [Feature_single,Feature_double ]
 
 data_y = data.pop('Is_positive') # pop y value
 data_x = data # get x value (x value)
@@ -148,7 +158,7 @@ def process_iteration(i):
     #return DF_gene,DF_score
     return FINAL_TABLE   
 
-result =  Parallel(n_jobs=-1)(delayed(process_iteration)(i) for i in range(first_permu))
+result =  Parallel(n_jobs=-1)(delayed(process_iteration)(i) for i in range(first_permu)) # n_jobs = -1 use and ask all possible nodes from cluster / recommend not to use n=-1
 
 
 re_result_shape =np.array(result,dtype='object').reshape(-1, np.array(result,dtype='object').shape[-1])
@@ -171,8 +181,19 @@ FIN_GENE['Likelyhood_CPG'] = FIN_GENE['ML_label'] / GENE2.groupby('Gene').count(
 # original CPG - 1 / original OTH -1
 FIN_GENE.to_csv('Result_machine_learning/%s_.ALL.permutation.%s.PPI.%s.tsv' %(name, (first_permu*second_repeat), Feature_single), sep='\t')
 
+# double features
+#FIN_GENE.to_csv('Result_machine_learning/%s_.ALL.permutation.%s.PPI.%s.tsv' %(name, (first_permu*second_repeat), Feature_final), sep='\t')
+
 # Machine learning performance save 
 SCORE.to_csv('Result_machine_learning/%s.ALL.score.%s.PPI.%s.tsv'%(name, (first_permu*second_repeat), Feature_single) , sep='\t')
 
+# double features
+#SCORE.to_csv('Result_machine_learning/%s.ALL.score.%s.PPI.%s.tsv'%(name, (first_permu*second_repeat), Feature_final) , sep='\t')
+
+
 # TPR / FPR save after each iteration steps
 AUC_val.to_csv('Result_machine_learning/%s.ALL.TPR_FPR.score.%s.PPI.%s.tsv'%(name, (first_permu*second_repeat), Feature_single) , sep='\t')
+
+# double features
+#AUC_val.to_csv('Result_machine_learning/%s.ALL.TPR_FPR.score.%s.PPI.%s.tsv'%(name, (first_permu*second_repeat), Feature_final) , sep='\t')
+

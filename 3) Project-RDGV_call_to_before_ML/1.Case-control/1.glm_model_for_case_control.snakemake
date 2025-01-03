@@ -1,0 +1,22 @@
+configfile: 'config-low.yaml'
+
+rule all:
+	input:
+        'out/s1_casecon_pc1234/TCGA.1KG.casecon.0.001.mutation.frequency_review2_1234.tsv',
+
+rule s001_glm_model_pc1234:
+	input:
+		clin = '001.data/PCA_TCGA_1KG_PC1_to_PC10.tsv',
+		cases = '001.data/TCGA.0.001.mutation.frequency_review2.tsv.gz',
+		control = '001.data/1KG.0.001.mutation.frequency_review2.tsv.gz'
+	output:
+		case_control_glm = 'out/s1_casecon_pc1234/TCGA.1KG.casecon.0.001.mutation.frequency_review2_1234.tsv'
+	resources:
+		mem_mb=85000,
+		runtime=120,
+	script:
+		's1_glm_case_control_pc1234.py'        
+
+
+
+# snakemake --use-conda --slurm  -j 23 -s 1.glm_model_for_case_control.snakemake -n

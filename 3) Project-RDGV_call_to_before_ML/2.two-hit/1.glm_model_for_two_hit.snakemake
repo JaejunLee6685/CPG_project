@@ -1,0 +1,22 @@
+configfile: 'config-low.yaml'
+
+
+rule all:
+	input:
+        expand('out/s1_two_hit_pc1234/TCGA.twohit.0.001.mutation.frequency_review2_1234.tsv', maf=maf, revie=revie),
+
+
+rule s001_glm_model_pc1234:
+	input:
+		clin = '001.data/PCA_TCGA_PC1_to_PC10.tsv',
+		germline = '001.data/TCGA.0.001.mutation.frequency_review2.tsv.gz',
+		somatic = '001.data/TCGA.LOH.ALL.tsv.gz'
+	output:
+		two_hit_glm = 'out/s1_two_hit_pc1234/TCGA.twohit.0.001.mutation.frequency_review2_1234.tsv'
+	resources:
+		mem_mb=85000,
+		runtime=120,
+	script:
+		's1_glm_two_hit_pc1234.py'        
+
+# snakemake --use-conda --slurm  -j 23 -s 1.glm_model_for_two_hit.snakemake -n

@@ -4,8 +4,30 @@ maf = config['maf']
 
 rule all:
 	input:
+		expand('DNDS_out_nodrop/TCGA.gene.types.{maf}.count.tsv.gz',maf=maf),
+		expand('DNDS_out_merge_nodrop/TCGA.gene.types.{maf}.merge.tsv.gz', maf=maf)	
+
 		expand('DNDS_out2/TCGA.gene.types.{maf}.count.tsv.gz',maf=maf),
 		expand('DNDS_out_merge2/TCGA.gene.types.{maf}.merge.tsv.gz', maf=maf)
+
+rule s001_get_four_set_nodrop: # no drop requires when calculating PTM interaction
+	input:
+		rare_damaging = 'out/s008_RDGV/TCGA.{maf}.RDGV.tsv.gz',
+		non_rare_damgaing = 'B_out/s108_RDGV/TCGA.{maf}.no.RARE.RDGV.tsv.gz',
+		rare_non_damaging = 'B_out/s203_merged_rare_no_rdgv/TCGA.ALL.exonic.{maf}.RARE.no.rdgv.tsv.gz',
+		non_rare_non_damaging = 'B_out/s303_merged_no_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz',
+	output:
+		count_gene_by_effect ='DNDS_out_nodrop/TCGA.gene.types.{maf}.count.tsv.gz',
+		merge= 'DNDS_out_merge_nodrop/TCGA.gene.types.{maf}.merge.tsv.gz'
+	resources:
+		mem_mb=250000,
+		runtime=360,
+	params:
+		maf = "{maf}"
+	script:
+		'call_dn_ds.py'
+
+
 
 rule s001_get_four_set_drop:
 	input:
@@ -14,8 +36,8 @@ rule s001_get_four_set_drop:
 		rare_non_damaging = 'B_out/s203_merged_rare_no_rdgv/TCGA.ALL.exonic.{maf}.RARE.no.rdgv.tsv.gz',
 		non_rare_non_damaging = 'B_out/s303_merged_no_rare_no_rdgv/TCGA.ALL.exonic.{maf}.no.RARE.no.rdgv.tsv.gz',
 	output:
-		count_gene_by_effect ='DNDS_out2/TCGA.gene.types.{maf}.count.tsv.gz',
-		merge= 'DNDS_out_merge2/TCGA.gene.types.{maf}.merge.tsv.gz'
+		count_gene_by_effect ='DNDS_out2_drop/TCGA.gene.types.{maf}.count.tsv.gz',
+		merge= 'DNDS_out_merge2_drop/TCGA.gene.types.{maf}.merge.tsv.gz'
 	resources:
 		mem_mb=250000,
 		runtime=360,

@@ -1,0 +1,67 @@
+configfile: 'config.yaml'
+chr = config['chr']
+
+ppttmm = config['ppttmm']
+
+rule all:
+	input:
+		expand('out/s1_pposition/TCGA.0.001.RDGV.variants.all.pposition.tsv.gz',),
+		expand('out/s2_PTM_again/TCGA.0.001.RDGV.variants.all.pposition.PTM.{ppttmm}.tsv.gz',  ppttmm=ppttmm),
+		expand('out/s3_RDGV_PTM_again/TCGA.0.001.RDGV.PTM.distance.{ppttmm}.drop.tsv.gz', ppttmm=ppttmm),
+		expand('out/s3_RDGV_PTM_again/TCGA.0.001.RDGV.PTM.distance.{ppttmm}.no_drop.tsv.gz',, ppttmm=ppttmm),
+		expand('out/s4_fisher_drop/TCGA.0.001.RDGV.PTM.fisher.{ppttmm}.drop.tsv', ppttmm=ppttmm),
+
+rule s001_get_position:
+ 	input:
+ 		vep_data_original = expand('{Project-annotation_to_RDGV_call}/out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv', chr=chr),
+ 		rdgv = '001.data/TCGA.gene.types.0.001.merge.tsv.gz'
+ 	output:
+ 		pposition = 'out/s1_pposition/TCGA.0.001.RDGV.variants.all.pposition.tsv.gz'
+ 	resources:
+ 		mem_mb=125000,
+ 		runtime=120,
+ 	script:
+ 		'script/s1_attach_p_position.py'
+
+rule s002_make_ptm:
+	input:
+		pposition = 'out/s1_pposition/TCGA.0.001.RDGV.variants.all.pposition.tsv.gz',
+		PTM_DB = '001.data/{ppttmm}_ptm.tsv'
+	output:
+		PTM_VARIANT_OUT = 'out/s2_PTM_again/TCGA.0.001.RDGV.variants.all.pposition.PTM.{ppttmm}.tsv.gz'
+	resources:
+		mem_mb=125000,
+		runtime=720,
+	script:
+		'script/s2_calculate_ptm_re_again.py'
+
+# rule s_003_make_sample_information
+rule s003_make_sample_stat:
+	input:
+		PTM_VARIANT_OUT = 'out/s2_PTM_again/TCGA.0.001.RDGV.variants.all.pposition.PTM.{ppttmm}.tsv.gz',
+		pposition = 'out/s1_pposition/TCGA.0.001.RDGV.variants.all.pposition.tsv.gz',
+		all_variant = '{Project-rare_varaint_process}/DNDS_out_merge_nodrop/TCGA.gene.types.{maf}.merge.tsv.gz'
+	output:
+		dropped_col = 'out/s3_RDGV_PTM_again/TCGA.0.001.RDGV.PTM.distance.{ppttmm}.drop.tsv.gz',
+		nodrop_col =  'out/s3_RDGV_PTM_again/TCGA.0.001.RDGV.PTM.distance.{ppttmm}.no_drop.tsv.gz',
+	resources:
+		mem_mb=125000,
+		runtime=720,
+	script:
+		'script/s3_make_stat_rea_again.py'
+
+rule s004_fisher_drop: # drop duplicated PTM site 
+	input:
+		PTM_distance = 'out/s3_RDGV_PTM_again/TCGA.0.001.RDGV.PTM.distance.{ppttmm}.drop.tsv.gz',
+	output:
+		Fisher = 'out/s4_fisher_drop/TCGA.0.001.RDGV.PTM.fisher.{ppttmm}.drop.tsv'
+	resources:
+		mem_mb=85000,
+		runtime=720,
+	script:
+		'script/s21_fisher_test.py'
+
+
+
+
+# snakemake --use-conda --slurm  -j 23 -s 1.fisher_model_PTM -n

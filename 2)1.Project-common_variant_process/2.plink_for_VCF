@@ -1,0 +1,42 @@
+configfile: 'config.yaml'
+
+folds = config['folds']
+types = config['types']
+
+rule all:
+	input:
+		expand('out_kit/s_fold_file_{folds}/5_pca.eigenvec',folds=folds),
+		expand('out_kit/s_fold_file_{folds}/5_pca.eigenval',folds=folds),
+		expand('out_kit/s_fold_file_{folds}/5_pca.diagonal.covariance',folds=folds),
+		expand(''out_kit/FIGURE/figure.{folds}.ANCESTRY.pdf',folds=folds),
+
+rule s810_get_vcf: # PLINK PCA analysis
+	input:
+		vcf = 'out_IMPORTANT/s004_vcf_common05/TCGA.all.vcf.common05.vcf.gz', 
+	output:
+		vcfs= 'out_kit/original/5_pca.eigenvec',
+		eigenval = 'out_kit/original/5_pca.eigenval',
+		eigencov = 'out_kit/original/5_pca.diagonal.covariance',
+	resources:
+		mem_mb=250000,
+		runtime=1440
+	params:
+		dir_folds ="out_kit/original"
+	script:
+		'scripts/run_plink_ver1.R'
+
+rule s812_draw_figure:
+	input:
+		clin =  '001.data/TCGA_SAMPLE_CLIN.txt', 
+		eigenvec = 'out_kit/original/5_pca.eigenvec',
+		eigenval = 'out_kit/original/5_pca.eigenval',
+		eigencov = 'out_kit/original/5_pca.diagonal.covariance',
+	output:
+		commons= expand('out_kit/FIGURE/figure.{types}.pdf', types=types)
+	resources:
+		mem_mb=80000,
+		runtime=240
+	script:
+		'scripts/draw_figure.py'
+
+snakemake --executor slurm -j 23 -s 2.plink_for_VCF  -n

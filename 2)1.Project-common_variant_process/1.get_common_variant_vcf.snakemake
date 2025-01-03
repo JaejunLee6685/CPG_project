@@ -1,0 +1,73 @@
+configfile: 'config2.yaml'
+chr = config['chr']
+folds = config['folds']
+folds2 = config['folds2']
+
+rule all:
+	input:
+		expand('out_IMPORTANT/s001_common_05/VEP.TCGA.{chr}.exonic.common05.tsv.gz',chr=chr),
+		expand('out_IMPORTANT/s001_common_01/VEP.TCGA.{chr}.exonic.common01.tsv.gz', chr=chr),
+		'out_IMPORTANT/s002_merged_common05/VEP.TCGA.ALL.exonic.annotation.merged.filtered.common05.tsv.gz',
+		#'out_IMPORTANT/s002_merged_common01/VEP.TCGA.ALL.exonic.annotation.merged.filtered.common01.tsv.gz',
+
+		'out_IMPORTANT/s003_vcflike_common05/TCGA.all.vcf.like.common05.tsv.gz', 
+		#'out_IMPORTANT/s003_vcflike_common01/TCGA.all.vcf.like.common01.tsv.gz', 
+
+		'out_IMPORTANT/s004_vcf_common05/TCGA.all.vcf.common05.vcf.gz',
+		#'out_IMPORTANT/s004_vcf_common01/TCGA.all.vcf.common01.vcf.gz',
+
+
+rule s708_get_common_again:
+ 	input:
+ 		vep = '{project-annotation_to_RDGV_call}/out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz',
+ 	output:
+ 		commons_05 = 'out_IMPORTANT/s001_common_05/VEP.TCGA.{chr}.exonic.common05.tsv.gz',
+ 		commons_01 ='out_IMPORTANT/s001_common_01/VEP.TCGA.{chr}.exonic.common01.tsv.gz',
+ 	resources:
+ 		mem_mb=120000,
+ 		runtime=1440,
+ 	script:
+ 		'scripts/merge_vep_vcf_IMPORTANT.py'
+
+# single fold change # only raw fold change (not utilize )
+# common criteria -> 0.05 0.01
+
+rule s709_merge_common05:
+ 	input:
+ 		data = expand('out_IMPORTANT/s001_common_05/VEP.TCGA.{chr}.exonic.common05.tsv.gz',chr=chr)
+ 	output:
+ 		merged = 'out_IMPORTANT/s002_merged_common05/VEP.TCGA.ALL.exonic.annotation.merged.filtered.common05.tsv.gz'
+ 	resources:
+ 		mem_mb=85000,
+ 		runtime=1440,
+ 	script:
+ 		'scripts/merge_all_chr.py'
+
+
+rule s710_to_vcf_common05:
+	input:
+		datas = 'out_IMPORTANT/s002_merged_common05/VEP.TCGA.ALL.exonic.annotation.merged.filtered.common05.tsv.gz',
+	output:
+		vcf_tsv = 'out_IMPORTANT/s003_vcflike_common05/TCGA.all.vcf.like.common05.tsv.gz', 
+	resources:
+		mem_mb=200000,
+		runtime=1440,
+	script:
+		'scripts/change_vcf.py'
+
+
+rule s711_get_vcf_common05:
+	input:
+		vcf_tsv = 'out_IMPORTANT/s003_vcflike_common05/TCGA.all.vcf.like.common05.tsv.gz', 
+		header = 'header.tsv.gz',
+	output:
+		vcfs= 'out_IMPORTANT/s004_vcf_common05/TCGA.all.vcf.common05.vcf.gz',
+	resources:
+		mem_mb=150000,
+		runtime=1440,
+	shell:
+		'''set +o pipefail;cat {input.header} {input.vcf_tsv} > {output.vcfs}'''
+
+
+
+# snakemake --use-conda --slurm  -j 23 -s 1.get_common_variant_vcf.snakemake -n

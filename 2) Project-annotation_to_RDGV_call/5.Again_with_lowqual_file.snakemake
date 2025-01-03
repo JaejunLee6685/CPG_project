@@ -1,0 +1,131 @@
+configfile: 'config2.yaml'
+chr = config['chr']
+folds = config['folds']
+
+
+rule all:
+	input:
+		expand('out9/s001_lonng_filter_AF/VEP.TCGA.{chr}.seq.FILTER.KIT.AF.tsv.gz',chr=chr),
+		expand('out9/s002_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.KIT.tsv.gz',chr=chr),
+		expand('out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz', chr=chr),
+
+		expand('out9/s003_AF_FOLD/VEP.TCGA.COMMON.fold_{folds}_.tsv.gz', folds=folds),
+		expand('out9/s004_AF_VCF/VEP.v.TCGA.COMMON.fold_{folds}_.tsv.gz',  folds=folds),
+		expand('out9/s205_vcf/TCGA.common.kit._{folds}_.vcf.gz',folds=folds),
+
+		#expand('out3/s204_AF_FOLD_MULTI/VEP.TCGA.COMMON.fold.multi_{folds}_.tsv.gz', folds = folds),
+		#expand('out3/s205_AF_VCF_MULTI/VEP.v.TCGA.COMMON.fold.multi_{folds}_.tsv.gz', folds=folds),
+		#expand('out3/s206_vcf_MULTI/TCGA.common.kit.multi._{folds}_.vcf.gz', folds=folds),
+
+rule s007_cal_AF:
+	input:
+		long = 'out5/s001_lonng_filter/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.tsv.gz'
+		clins = 'TCGA_SAMPLE_CLIN_Kit_lowqual.txt',
+	output:
+		AF_out = 'out9/s001_lonng_filter_AF/VEP.TCGA.{chr}.seq.FILTER.KIT.AF.tsv.gz'
+	resources:
+		mem_mb=95000,
+		runtime=1440,
+	script:
+		'scripts_for_5_steps/cal_center_tcga_af_2.py'
+
+rule s007_merge_to_common_only:
+	input:
+		DF3 = 'out9/s001_lonng_filter_AF/VEP.TCGA.{chr}.seq.FILTER.KIT.AF.tsv.gz',
+		vep = 'out3/s003_filtered/VEP.TCGA.{chr}.common.rr.variant.filter.tsv'
+	output:
+		commons = 'out9/s002_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.KIT.tsv.gz', # FINAL INPUT FOR COMMON CALL
+		temporarys = 'out9/s02_VEP_common_TEMPO/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.ALL.tempo.KIT.tsv.gz', # FINAL INPUT FOR RDGV CALL
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	script:
+		'scripts_annex/merge_vep_vcf.py'
+		# common criteria can be changable
+		# temporarys 
+
+# single fold change
+# common criteria -> 0.05 
+
+rule s008_fold_change:
+	input:
+		commons = expand('out9/s002_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.KIT.tsv.gz', chr=chr),
+	output:
+		foldchange = 'out9/s003_AF_FOLD/VEP.TCGA.COMMON.fold_{folds}_.tsv.gz'
+	resources:
+		mem_mb=120000,
+		runtime=1440,
+	params:
+		folds2 ="{folds}"
+	script:
+		'scripts_for_5_steps/FOLD_change_2.py'	
+		# important to call TCGA common variants -> depends 
+
+rule s009_to_vcf:
+	input:
+		datas = 'out9/s003_AF_FOLD/VEP.TCGA.COMMON.fold_{folds}_.tsv.gz',
+	output:
+		vcf_tsv = 'out9/s004_AF_VCF/VEP.v.TCGA.COMMON.fold_{folds}_.tsv.gz', 
+	resources:
+		mem_mb=200000,
+		runtime=1440,
+	script:
+		'scripts_annex/change_vcf.py'
+
+rule s010_get_vcf:
+	input:
+		vcf_tsv = 'out9/s004_AF_VCF/VEP.v.TCGA.COMMON.fold_{folds}_.tsv.gz', 
+		header = 'header.tsv.gz',
+	output:
+		vcfs= 'out9/s205_vcf/TCGA.common.kit._{folds}_.vcf.gz',
+	resources:
+		mem_mb=150000,
+		runtime=1440,
+	shell:
+		'''set +o pipefail;cat {input.header} {input.vcf_tsv} > {output.vcfs}'''
+
+
+
+
+"""
+# multiple fold change
+rule s008_fold_change_multi:
+	input:
+		commons = expand('out3/s203_VEP_common_AF/VEP.TCGA.{chr}.exonic.filter.cd.seqfiltered.AF.COMMON.KIT.tsv.gz', chr=chr),
+	output:
+		multiple_fold = 'out3/s204_AF_FOLD_MULTI/VEP.TCGA.COMMON.fold.multi_{folds}_.tsv.gz',
+	resources:
+		mem_mb=200000,
+		runtime=1440,
+	params:
+		folds2 ="{folds}"
+	script:
+		'scripts/FOLD_change_multiple_2.py'	
+
+rule s009_to_vcf_multi:
+	input:
+		datas = 'out3/s204_AF_FOLD_MULTI/VEP.TCGA.COMMON.fold.multi_{folds}_.tsv.gz',
+	output:
+		vcf_tsv = 'out3/s205_AF_VCF_MULTI/VEP.v.TCGA.COMMON.fold.multi_{folds}_.tsv.gz', 
+	resources:
+		mem_mb=200000,
+		runtime=1440,
+	script:
+		'change_vcf.py'
+
+rule s010_get_vcf_multi:
+	input:
+		vcf_tsv = 'out3/s205_AF_VCF_MULTI/VEP.v.TCGA.COMMON.fold.multi_{folds}_.tsv.gz', 
+		header = 'header.tsv.gz',
+	output:
+		vcfs= 'out3/s206_vcf_MULTI/TCGA.common.kit.multi._{folds}_.vcf.gz',
+	resources:
+		mem_mb=150000,
+		runtime=1440,
+	shell:
+		'''set +o pipefail;cat {input.header} {input.vcf_tsv} > {output.vcfs}'''
+
+"""
+
+
+# snakemake --use-conda --slurm  -j 23 -s 5.Again_with_lowqual_file.snakemake -n

@@ -20,3 +20,17 @@ CPG prediction machine learning Model
 
 10. Hyperparameter tuning step also vary based on the training/test set.
 
+
+How to run python package
+
+1. Unlike snakemake based multiprocess, the codes are designed to submit single job based on sbatch
+2. So, the user should submit job with sbatch command with the same way
+
+### command ###
+
+sbatch -o {log_output_dir} -e {error_output_dir} -J {job_Name} -c 64 --mem=64G -t360 --wrap "python {python_code.py}"
+
+# c: number of core / 64 cores takes maximum 1 hour 30 minutes
+# mem: size of memory / 64 Gb recommends
+# t: time of running / maximum 1440 mins / scale minutes
+# --wrap: command for python

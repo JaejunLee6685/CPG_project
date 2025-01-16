@@ -12,7 +12,8 @@
 	2) Wide to long: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/004.wide_to_long/step5_snakemake-fix1
 	3) Attach clinical (TCGA sample information) : /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/005.attach_clindata/step6_snakemake
 	
-	4) get exonic only: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s01_get_exonic AND /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s02_to_vcf_file AND 
+	4) get exonic only: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s01_get_exonic AND 
+	/storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s02_to_vcf_file AND 
 
 	5) gnomAD filter double check: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s02_to_vcf_file_ver2
 	6) get after lowqual filter: /storage/scratch01/groups/gcc/LJJ_ML_project_2024/006.TCGA_VCF_FILTRATION/008.get_exonic_splicing/s04_score_filter_for_all
